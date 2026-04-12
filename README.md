@@ -8,15 +8,12 @@ Projeto de gerenciador de tarefas feito com HTML, CSS e JavaScript.
 - Excluir tarefas
 - Marcar como concluídas
 - Definir prioridade
-- Definir prazo
+- Definir data e horário
+- Buscar tarefas com autocomplete
+- Alternar entre modo claro e escuro
 - Visualizar tarefas atrasadas
 - Filtrar tarefas
 - Salvar dados com localStorage
-
-## Tecnologias utilizadas
-- HTML
-- CSS
-- JavaScript
 
 ## Projeto online
 https://gowtlr.github.io/task-manager/
