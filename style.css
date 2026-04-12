@@ -409,10 +409,6 @@ body.light-theme .time-badge {
 }
 
 @media (max-width: 900px) {
-  .stats {
-    grid-template-columns: repeat(2, 1fr);
-  }
-
   .input-area {
     grid-template-columns: 1fr;
   }
@@ -433,6 +429,26 @@ body.light-theme .time-badge {
     align-items: stretch;
   }
 
+  .task-content {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .task-meta {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+  }
+
+  .date-badge,
+  .time-badge,
+  .priority-badge,
+  .overdue-badge {
+    max-width: 100%;
+    white-space: normal;
+    word-break: break-word;
+  }
+
   .task-actions button {
     width: 100%;
   }
@@ -440,7 +456,7 @@ body.light-theme .time-badge {
 
 @media (max-width: 500px) {
   .stats {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   h1 {
