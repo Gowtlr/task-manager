@@ -1,601 +1,585 @@
-const taskTextInput = document.getElementById("taskTextInput");
-const taskPrioritySelect = document.getElementById("taskPrioritySelect");
-const taskDateInput = document.getElementById("taskDateInput");
-const taskTimeInput = document.getElementById("taskTimeInput");
-const addTaskBtn = document.getElementById("addTaskBtn");
-const clearDoneBtn = document.getElementById("clearDoneBtn");
+const taskForm = document.getElementById("taskForm");
+const taskInput = document.getElementById("taskInput");
+const categorySelect = document.getElementById("categorySelect");
+const prioritySelect = document.getElementById("prioritySelect");
+const taskDate = document.getElementById("taskDate");
+const taskTime = document.getElementById("taskTime");
 const searchInput = document.getElementById("searchInput");
-const searchSuggestions = document.getElementById("searchSuggestions");
-const themeToggleBtn = document.getElementById("themeToggleBtn");
+const autocompleteList = document.getElementById("autocompleteList");
 const taskList = document.getElementById("taskList");
-const emptyMessage = document.getElementById("emptyMessage");
-const filterButtons = document.querySelectorAll(".filter-btn");
+const clearDoneBtn = document.getElementById("clearDoneBtn");
+const sortSelect = document.getElementById("sortSelect");
 
 const totalCount = document.getElementById("totalCount");
 const pendingCount = document.getElementById("pendingCount");
 const doneCount = document.getElementById("doneCount");
-const overdueCount = document.getElementById("overdueCount");
+const lateCount = document.getElementById("lateCount");
+const todayTasks = document.getElementById("todayTasks");
+const progressText = document.getElementById("progressText");
+const progressValue = document.getElementById("progressValue");
+const progressFill = document.getElementById("progressFill");
 
-let tasks = [];
-let currentFilter = "all";
-let searchTerm = "";
-let currentTheme = "dark";
+const themeToggle = document.getElementById("themeToggle");
+const themeIcon = document.getElementById("themeIcon");
+const themeLabel = document.getElementById("themeLabel");
+const filterButtons = document.querySelectorAll(".filter-btn");
 
-function saveTasks() {
-  localStorage.setItem("tasks", JSON.stringify(tasks));
-}
+const editModal = document.getElementById("editModal");
+const closeModalBtn = document.getElementById("closeModalBtn");
+const editTaskForm = document.getElementById("editTaskForm");
+const editTaskInput = document.getElementById("editTaskInput");
+const editCategorySelect = document.getElementById("editCategorySelect");
+const editPrioritySelect = document.getElementById("editPrioritySelect");
+const editTaskDate = document.getElementById("editTaskDate");
+const editTaskTime = document.getElementById("editTaskTime");
 
-function loadTasks() {
-  const savedTasks = localStorage.getItem("tasks");
-
-  if (!savedTasks) {
-    return;
-  }
-
-  let parsedTasks;
-
+function readStorageArray(key) {
   try {
-    parsedTasks = JSON.parse(savedTasks);
+    const rawValue = localStorage.getItem(key);
+
+    if (!rawValue) {
+      return [];
+    }
+
+    const parsedValue = JSON.parse(rawValue);
+    return Array.isArray(parsedValue) ? parsedValue : [];
   } catch (error) {
-    localStorage.removeItem("tasks");
-    return;
+    localStorage.removeItem(key);
+    return [];
   }
-
-  if (!Array.isArray(parsedTasks)) {
-    return;
-  }
-
-  tasks = parsedTasks
-    .map(normalizeTask)
-    .filter(task => task.text !== "");
-}
-
-function saveTheme() {
-  localStorage.setItem("theme", currentTheme);
-}
-
-function loadTheme() {
-  const savedTheme = localStorage.getItem("theme");
-
-  if (savedTheme === "light" || savedTheme === "dark") {
-    currentTheme = savedTheme;
-  }
-}
-
-function applyTheme() {
-  if (currentTheme === "light") {
-    document.body.classList.add("light-theme");
-    themeToggleBtn.textContent = "🌙 Modo escuro";
-  } else {
-    document.body.classList.remove("light-theme");
-    themeToggleBtn.textContent = "☀️ Modo claro";
-  }
-}
-
-function toggleTheme() {
-  currentTheme = currentTheme === "dark" ? "light" : "dark";
-  saveTheme();
-  applyTheme();
-}
-
-function normalizePriority(value) {
-  const normalized = String(value || "")
-    .trim()
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "");
-
-  if (normalized === "alta" || normalized === "high") {
-    return "high";
-  }
-
-  if (normalized === "baixa" || normalized === "low") {
-    return "low";
-  }
-
-  return "medium";
-}
-
-function priorityLabel(priority) {
-  if (priority === "high") {
-    return "Alta";
-  }
-
-  if (priority === "low") {
-    return "Baixa";
-  }
-
-  return "Média";
-}
-
-function generateTaskId() {
-  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
-    return crypto.randomUUID();
-  }
-
-  return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
 function normalizeTask(task) {
+  const normalizedCategory = ["Estudo", "Trabalho", "Pessoal"].includes(task?.category)
+    ? task.category
+    : "Pessoal";
+  const normalizedPriority = ["Baixa", "M\u00E9dia", "Alta", "MÃ©dia"].includes(task?.priority)
+    ? String(task.priority).replace("MÃ©dia", "M\u00E9dia")
+    : "Baixa";
+
   return {
-    id: task.id || generateTaskId(),
-    text: String(task.text || "").trim(),
-    done: Boolean(task.done),
-    priority: normalizePriority(task.priority),
-    dueDate: typeof task.dueDate === "string" ? task.dueDate : "",
-    dueTime: typeof task.dueTime === "string" ? task.dueTime : ""
+    id: Number(task?.id) || Date.now(),
+    text: String(task?.text || "").trim(),
+    category: normalizedCategory,
+    priority: normalizedPriority,
+    date: typeof task?.date === "string" ? task.date : "",
+    time: typeof task?.time === "string" ? task.time : "",
+    completed: Boolean(task?.completed)
   };
 }
 
-function getTodayLocalDate() {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, "0");
-  const day = String(now.getDate()).padStart(2, "0");
+let tasks = readStorageArray("tasks_insane")
+  .map(normalizeTask)
+  .filter(task => task.text !== "");
+let theme = localStorage.getItem("theme_insane") === "light" ? "light" : "dark";
+let currentFilter = "all";
+let editingTaskId = null;
 
-  return `${year}-${month}-${day}`;
+function saveTasks() {
+  localStorage.setItem("tasks_insane", JSON.stringify(tasks));
 }
 
-function getCurrentLocalDateTime() {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, "0");
-  const day = String(now.getDate()).padStart(2, "0");
-  const hours = String(now.getHours()).padStart(2, "0");
-  const minutes = String(now.getMinutes()).padStart(2, "0");
-
-  return `${year}-${month}-${day}T${hours}:${minutes}`;
+function saveTheme() {
+  localStorage.setItem("theme_insane", theme);
 }
 
-function isValidDateString(value) {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
-    return false;
+function applyTheme() {
+  const isLightTheme = theme === "light";
+  document.body.classList.toggle("light", isLightTheme);
+  themeIcon.textContent = isLightTheme ? "\uD83C\uDF19" : "\u2600\uFE0F";
+  themeLabel.textContent = isLightTheme ? "Modo escuro" : "Modo claro";
+  return;
+
+  if (theme === "light") {
+    document.body.classList.add("light");
+    themeIcon.textContent = "🌙";
+    themeLabel.textContent = "Modo escuro";
+  } else {
+    document.body.classList.remove("light");
+    themeIcon.textContent = "☀️";
+    themeLabel.textContent = "Modo claro";
   }
-
-  const [year, month, day] = value.split("-").map(Number);
-  const date = new Date(year, month - 1, day);
-
-  return (
-    date.getFullYear() === year &&
-    date.getMonth() === month - 1 &&
-    date.getDate() === day
-  );
-}
-
-function isValidTimeString(value) {
-  return /^([01]\d|2[0-3]):([0-5]\d)$/.test(value);
 }
 
 function formatDate(dateString) {
-  if (!dateString) {
-    return "Sem data";
-  }
-
+  if (!dateString) return "";
   const [year, month, day] = dateString.split("-");
   return `${day}/${month}/${year}`;
 }
 
-function formatTime(timeString) {
-  if (!timeString) {
-    return "Sem horário";
-  }
-
-  return timeString;
+function formatDateTime(date, time) {
+  if (!date && !time) return "Sem data e hora";
+  if (date && time) return `${formatDate(date)} às ${time}`;
+  if (date) return `Data: ${formatDate(date)}`;
+  return `Hora: ${time}`;
 }
 
-function isOverdue(task) {
-  if (task.done || !task.dueDate) {
-    return false;
-  }
+function isToday(dateString) {
+  if (!dateString) return false;
+  const today = new Date();
+  const [year, month, day] = dateString.split("-").map(Number);
 
-  if (task.dueTime) {
-    const taskDateTime = `${task.dueDate}T${task.dueTime}`;
-    return taskDateTime < getCurrentLocalDateTime();
-  }
-
-  return task.dueDate < getTodayLocalDate();
+  return (
+    today.getFullYear() === year &&
+    today.getMonth() + 1 === month &&
+    today.getDate() === day
+  );
 }
 
-function updateCounts() {
+function isTaskLate(task) {
+  if (task.completed || !task.date) return false;
+  const finalTime = task.time || "23:59";
+  return new Date(`${task.date}T${finalTime}`) < new Date();
+}
+
+function escapeHtml(text) {
+  const div = document.createElement("div");
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+function getPriorityClass(priority) {
+  if (priority === "Baixa") return "priority-baixa";
+  if (priority === "Média") return "priority-media";
+  return "priority-alta";
+}
+
+function getPriorityCardClass(priority) {
+  if (priority === "Baixa") return "priority-baixa-card";
+  if (priority === "Média") return "priority-media-card";
+  return "priority-alta-card";
+}
+
+function getCategoryClass(category) {
+  if (category === "Estudo") return "category-estudo";
+  if (category === "Trabalho") return "category-trabalho";
+  return "category-pessoal";
+}
+
+function updateStats() {
   const total = tasks.length;
-  const pending = tasks.filter(task => !task.done).length;
-  const done = tasks.filter(task => task.done).length;
-  const overdue = tasks.filter(task => isOverdue(task)).length;
+  const pending = tasks.filter(task => !task.completed).length;
+  const done = tasks.filter(task => task.completed).length;
+  const late = tasks.filter(task => isTaskLate(task)).length;
+  const today = tasks.filter(task => isToday(task.date)).length;
 
   totalCount.textContent = total;
   pendingCount.textContent = pending;
   doneCount.textContent = done;
-  overdueCount.textContent = overdue;
+  lateCount.textContent = late;
+  todayTasks.textContent = `${today} ${today === 1 ? "tarefa" : "tarefas"}`;
+
+  const progress = total === 0 ? 0 : Math.round((done / total) * 100);
+  progressText.textContent = `${progress}%`;
+  progressValue.textContent = `${progress}%`;
+  progressFill.style.width = `${progress}%`;
+}
+
+function getSearchFilteredTasks() {
+  const term = searchInput.value.trim().toLowerCase();
+  if (!term) return tasks;
+
+  return tasks.filter(task =>
+    String(task.text || "").toLowerCase().includes(term) ||
+    String(task.category || "").toLowerCase().includes(term) ||
+    String(task.priority || "").toLowerCase().includes(term)
+  );
+}
+
+function applyCurrentFilter(taskArray) {
+  switch (currentFilter) {
+    case "pending":
+      return taskArray.filter(task => !task.completed);
+    case "done":
+      return taskArray.filter(task => task.completed);
+    case "late":
+      return taskArray.filter(task => isTaskLate(task));
+    case "high":
+      return taskArray.filter(task => task.priority === "Alta");
+    case "study":
+      return taskArray.filter(task => task.category === "Estudo");
+    case "work":
+      return taskArray.filter(task => task.category === "Trabalho");
+    case "personal":
+      return taskArray.filter(task => task.category === "Pessoal");
+    default:
+      return taskArray;
+  }
 }
 
 function sortTasks(taskArray) {
-  const priorityOrder = {
-    high: 0,
-    medium: 1,
-    low: 2
-  };
+  const priorityOrder = { Alta: 1, Média: 2, Baixa: 3 };
+  const ordered = [...taskArray];
 
-  return [...taskArray].sort((firstTask, secondTask) => {
-    if (firstTask.done !== secondTask.done) {
-      return Number(firstTask.done) - Number(secondTask.done);
-    }
-
-    if (priorityOrder[firstTask.priority] !== priorityOrder[secondTask.priority]) {
-      return priorityOrder[firstTask.priority] - priorityOrder[secondTask.priority];
-    }
-
-    if (firstTask.dueDate && secondTask.dueDate) {
-      const firstDateTime = `${firstTask.dueDate}T${firstTask.dueTime || "23:59"}`;
-      const secondDateTime = `${secondTask.dueDate}T${secondTask.dueTime || "23:59"}`;
-
-      if (firstDateTime !== secondDateTime) {
-        return firstDateTime.localeCompare(secondDateTime);
-      }
-    }
-
-    if (firstTask.dueDate && !secondTask.dueDate) {
-      return -1;
-    }
-
-    if (!firstTask.dueDate && secondTask.dueDate) {
-      return 1;
-    }
-
-    return firstTask.text.localeCompare(secondTask.text, "pt-BR");
-  });
-}
-
-function getBaseFilteredTasks() {
-  let filteredTasks = [...tasks];
-
-  if (currentFilter === "pending") {
-    filteredTasks = filteredTasks.filter(task => !task.done);
-  } else if (currentFilter === "done") {
-    filteredTasks = filteredTasks.filter(task => task.done);
+  if (sortSelect.value === "date") {
+    ordered.sort((a, b) => {
+      const aDate = a.date ? new Date(`${a.date}T${a.time || "23:59"}`).getTime() : Infinity;
+      const bDate = b.date ? new Date(`${b.date}T${b.time || "23:59"}`).getTime() : Infinity;
+      return aDate - bDate;
+    });
+  } else if (sortSelect.value === "recent") {
+    ordered.sort((a, b) => b.id - a.id);
+  } else {
+    ordered.sort((a, b) => {
+      if (a.completed !== b.completed) return a.completed - b.completed;
+      return (priorityOrder[a.priority] || 99) - (priorityOrder[b.priority] || 99);
+    });
   }
 
-  return sortTasks(filteredTasks);
+  return ordered;
 }
 
-function updateSearchSuggestions() {
-  searchSuggestions.innerHTML = "";
+function renderAutocomplete(matches) {
+  autocompleteList.innerHTML = "";
 
-  if (searchTerm === "") {
-    searchSuggestions.style.display = "none";
+  if (!searchInput.value.trim() || matches.length === 0) {
+    autocompleteList.style.display = "none";
     return;
   }
 
-  const matchedTasks = getBaseFilteredTasks()
-    .filter(task => task.text.toLowerCase().includes(searchTerm.toLowerCase()))
-    .slice(0, 5);
+  matches.slice(0, 5).forEach(task => {
+    const item = document.createElement("div");
+    item.className = "autocomplete-item";
+    item.textContent = `${task.text} • ${task.category}`;
 
-  if (matchedTasks.length === 0) {
-    searchSuggestions.style.display = "none";
-    return;
-  }
-
-  matchedTasks.forEach(task => {
-    const suggestionItem = document.createElement("div");
-    suggestionItem.classList.add("search-suggestion-item");
-
-    const suggestionTitle = document.createElement("span");
-    suggestionTitle.classList.add("search-suggestion-title");
-    suggestionTitle.textContent = task.text;
-
-    const suggestionMeta = document.createElement("span");
-    suggestionMeta.classList.add("search-suggestion-meta");
-    suggestionMeta.textContent = [
-      `Prioridade: ${priorityLabel(task.priority)}`,
-      `Data: ${formatDate(task.dueDate)}`,
-      `Horário: ${formatTime(task.dueTime)}`
-    ].join(" • ");
-
-    suggestionItem.appendChild(suggestionTitle);
-    suggestionItem.appendChild(suggestionMeta);
-
-    suggestionItem.addEventListener("click", () => {
+    item.addEventListener("click", () => {
       searchInput.value = task.text;
-      searchTerm = task.text;
-      searchSuggestions.style.display = "none";
-      renderTasks();
+      autocompleteList.style.display = "none";
+      renderEverything();
     });
 
-    searchSuggestions.appendChild(suggestionItem);
+    autocompleteList.appendChild(item);
   });
 
-  searchSuggestions.style.display = "block";
+  autocompleteList.style.display = "block";
 }
 
-function hideSearchSuggestions() {
-  searchSuggestions.style.display = "none";
+function openEditModal(task) {
+  editingTaskId = task.id;
+  editTaskInput.value = task.text;
+  editCategorySelect.value = task.category;
+  editPrioritySelect.value = task.priority;
+  editTaskDate.value = task.date || "";
+  editTaskTime.value = task.time || "";
+  editModal.classList.remove("hidden");
 }
 
-function renderTasks() {
+function closeEditModal() {
+  editingTaskId = null;
+  editModal.classList.add("hidden");
+  editTaskForm.reset();
+}
+
+function renderTasks(displayedTasks) {
   taskList.innerHTML = "";
 
-  let filteredTasks = getBaseFilteredTasks();
-
-  if (searchTerm !== "") {
-    filteredTasks = filteredTasks.filter(task =>
-      task.text.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+  if (displayedTasks.length === 0) {
+    taskList.innerHTML = `
+      <div class="empty-state">
+        <div class="empty-state-icon">📝</div>
+        <div class="empty-state-title">Nenhuma tarefa encontrada</div>
+        <p>Tente adicionar uma nova tarefa ou alterar os filtros.</p>
+      </div>
+    `;
+    return;
   }
 
-  if (filteredTasks.length === 0) {
-    emptyMessage.style.display = "block";
-  } else {
-    emptyMessage.style.display = "none";
-  }
+  const orderedTasks = sortTasks(displayedTasks);
 
-  filteredTasks.forEach(task => {
-    const taskItem = document.createElement("li");
-    taskItem.classList.add("task-item");
+  orderedTasks.forEach(task => {
+    const item = document.createElement("article");
+    item.className = `task-item ${getPriorityCardClass(task.priority)}`;
 
-    const taskContent = document.createElement("div");
-    taskContent.classList.add("task-content");
+    item.innerHTML = `
+      <div class="task-main">
+        <input
+          type="checkbox"
+          class="task-checkbox"
+          ${task.completed ? "checked" : ""}
+          aria-label="Marcar tarefa como concluída"
+        />
 
-    const taskText = document.createElement("span");
-    taskText.classList.add("task-text");
+        <div class="task-info">
+          <div class="task-topline">
+            <span class="category-badge ${getCategoryClass(task.category)}">${task.category}</span>
+          </div>
 
-    if (task.done) {
-      taskText.classList.add("done");
-    }
+          <div class="task-title ${task.completed ? "completed" : ""}">
+            ${escapeHtml(task.text)}
+          </div>
 
-    taskText.textContent = task.text;
+          <div class="task-meta">
+            <span class="badge ${getPriorityClass(task.priority)}">
+              Prioridade: ${task.priority}
+            </span>
+            <span class="badge">
+              ${task.completed ? "Concluída" : "Pendente"}
+            </span>
+            ${isTaskLate(task) ? `<span class="badge priority-alta">Atrasada</span>` : ""}
+          </div>
 
-    const taskMeta = document.createElement("div");
-    taskMeta.classList.add("task-meta");
+          <div class="task-datetime">
+            ${formatDateTime(task.date, task.time)}
+          </div>
+        </div>
+      </div>
 
-    const priorityBadge = document.createElement("span");
-    priorityBadge.classList.add("priority-badge", task.priority);
-    priorityBadge.textContent = `Prioridade: ${priorityLabel(task.priority)}`;
+      <div class="task-actions">
+        <button class="icon-btn edit-btn" type="button" aria-label="Editar tarefa">✏️</button>
+        <button class="icon-btn delete-btn" type="button" aria-label="Excluir tarefa">🗑️</button>
+      </div>
+    `;
 
-    const dateBadge = document.createElement("span");
-    dateBadge.classList.add("date-badge");
-    dateBadge.textContent = `Data: ${formatDate(task.dueDate)}`;
+    const checkbox = item.querySelector(".task-checkbox");
+    const editButton = item.querySelector(".edit-btn");
+    const deleteButton = item.querySelector(".delete-btn");
 
-    const timeBadge = document.createElement("span");
-    timeBadge.classList.add("time-badge");
-    timeBadge.textContent = `Horário: ${formatTime(task.dueTime)}`;
+    checkbox.addEventListener("change", () => toggleTask(task.id));
+    editButton.addEventListener("click", () => openEditModal(task));
+    deleteButton.addEventListener("click", () => deleteTask(task.id));
 
-    taskMeta.appendChild(priorityBadge);
-    taskMeta.appendChild(dateBadge);
-    taskMeta.appendChild(timeBadge);
-
-    if (isOverdue(task)) {
-      const overdueBadge = document.createElement("span");
-      overdueBadge.classList.add("overdue-badge");
-      overdueBadge.textContent = "Atrasada";
-      taskMeta.appendChild(overdueBadge);
-    }
-
-    taskContent.appendChild(taskText);
-    taskContent.appendChild(taskMeta);
-
-    const taskActions = document.createElement("div");
-    taskActions.classList.add("task-actions");
-
-    const editBtn = document.createElement("button");
-    editBtn.classList.add("edit-btn");
-    editBtn.textContent = "Editar";
-    editBtn.addEventListener("click", () => editTask(task.id));
-
-    const completeBtn = document.createElement("button");
-    completeBtn.classList.add("complete-btn");
-    completeBtn.textContent = task.done ? "Desfazer" : "Concluir";
-    completeBtn.addEventListener("click", () => toggleTask(task.id));
-
-    const deleteBtn = document.createElement("button");
-    deleteBtn.classList.add("delete-btn");
-    deleteBtn.textContent = "Excluir";
-    deleteBtn.addEventListener("click", () => deleteTask(task.id));
-
-    taskActions.appendChild(editBtn);
-    taskActions.appendChild(completeBtn);
-    taskActions.appendChild(deleteBtn);
-
-    taskItem.appendChild(taskContent);
-    taskItem.appendChild(taskActions);
-
-    taskList.appendChild(taskItem);
+    taskList.appendChild(item);
   });
-
-  updateCounts();
 }
 
-function addTask() {
-  const taskText = taskTextInput.value.trim();
-  const taskDate = taskDateInput.value;
-  const taskTime = taskTimeInput.value;
-  const taskPriority = taskPrioritySelect.value;
+function renderEverything() {
+  updateStats();
+  const searchFiltered = getSearchFilteredTasks();
+  const finalTasks = applyCurrentFilter(searchFiltered);
+  renderTasks(finalTasks);
+  renderAutocomplete(searchFiltered);
+}
 
-  if (taskText === "") {
-    alert("Digite uma tarefa.");
-    return;
-  }
+function addTask(event) {
+  event.preventDefault();
 
-  if (taskPriority === "") {
-    alert("Selecione uma prioridade.");
-    return;
-  }
+  const text = taskInput.value.trim();
+  const category = categorySelect.value;
+  const priority = prioritySelect.value;
+  const date = taskDate.value;
+  const time = taskTime.value;
 
-  if (taskTime !== "" && taskDate === "") {
-    alert("Escolha uma data antes de definir um horário.");
-    return;
-  }
+  if (!text || !category || !priority) return;
 
   tasks.push({
-    id: generateTaskId(),
-    text: taskText,
-    done: false,
-    priority: normalizePriority(taskPriority),
-    dueDate: taskDate,
-    dueTime: taskTime
+    id: Date.now(),
+    text,
+    category,
+    priority,
+    date,
+    time,
+    completed: false
   });
 
   saveTasks();
-  taskTextInput.value = "";
-  taskPrioritySelect.value = "";
-  taskDateInput.value = "";
-  taskTimeInput.value = "";
-  renderTasks();
-  updateSearchSuggestions();
+  taskForm.reset();
+  renderEverything();
 }
 
-function toggleTask(taskId) {
-  const selectedTask = tasks.find(task => task.id === taskId);
-
-  if (!selectedTask) {
-    return;
-  }
-
-  selectedTask.done = !selectedTask.done;
+function toggleTask(id) {
+  tasks = tasks.map(task =>
+    task.id === id ? { ...task, completed: !task.completed } : task
+  );
   saveTasks();
-  renderTasks();
-  updateSearchSuggestions();
+  renderEverything();
 }
 
-function deleteTask(taskId) {
-  tasks = tasks.filter(task => task.id !== taskId);
+function deleteTask(id) {
+  tasks = tasks.filter(task => task.id !== id);
   saveTasks();
-  renderTasks();
-  updateSearchSuggestions();
-}
-
-function editTask(taskId) {
-  const selectedTask = tasks.find(task => task.id === taskId);
-
-  if (!selectedTask) {
-    return;
-  }
-
-  const newText = prompt("Edite o texto da tarefa:", selectedTask.text);
-
-  if (newText === null) {
-    return;
-  }
-
-  if (newText.trim() === "") {
-    alert("A tarefa não pode ficar vazia.");
-    return;
-  }
-
-  const newPriority = prompt(
-    "Digite a prioridade: alta, media ou baixa",
-    priorityLabel(selectedTask.priority).toLowerCase()
-  );
-
-  if (newPriority === null) {
-    return;
-  }
-
-  const normalizedPriority = newPriority
-    .trim()
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "");
-
-  if (!["alta", "media", "baixa", "high", "medium", "low"].includes(normalizedPriority)) {
-    alert("Prioridade inválida. Use alta, media ou baixa.");
-    return;
-  }
-
-  const newDate = prompt(
-    "Digite a data no formato AAAA-MM-DD ou deixe vazio para remover:",
-    selectedTask.dueDate
-  );
-
-  if (newDate === null) {
-    return;
-  }
-
-  const trimmedDate = newDate.trim();
-
-  if (trimmedDate !== "" && !isValidDateString(trimmedDate)) {
-    alert("Data inválida. Use o formato AAAA-MM-DD.");
-    return;
-  }
-
-  const newTime = prompt(
-    "Digite o horário no formato HH:MM ou deixe vazio para remover:",
-    selectedTask.dueTime
-  );
-
-  if (newTime === null) {
-    return;
-  }
-
-  const trimmedTime = newTime.trim();
-
-  if (trimmedTime !== "" && !isValidTimeString(trimmedTime)) {
-    alert("Horário inválido. Use o formato HH:MM.");
-    return;
-  }
-
-  if (trimmedDate === "" && trimmedTime !== "") {
-    alert("Defina uma data para usar horário.");
-    return;
-  }
-
-  selectedTask.text = newText.trim();
-  selectedTask.priority = normalizePriority(newPriority);
-  selectedTask.dueDate = trimmedDate;
-  selectedTask.dueTime = trimmedTime;
-
-  saveTasks();
-  renderTasks();
-  updateSearchSuggestions();
+  renderEverything();
 }
 
 function clearCompletedTasks() {
-  tasks = tasks.filter(task => !task.done);
+  tasks = tasks.filter(task => !task.completed);
   saveTasks();
-  renderTasks();
-  updateSearchSuggestions();
+  renderEverything();
 }
 
-addTaskBtn.addEventListener("click", addTask);
+function updateTask(event) {
+  event.preventDefault();
 
-taskTextInput.addEventListener("keypress", event => {
-  if (event.key === "Enter") {
-    addTask();
+  const trimmedText = editTaskInput.value.trim();
+
+  if (!trimmedText || !editCategorySelect.value || !editPrioritySelect.value) {
+    return;
   }
-});
 
-clearDoneBtn.addEventListener("click", clearCompletedTasks);
+  tasks = tasks.map(task => {
+    if (task.id !== editingTaskId) return task;
 
-searchInput.addEventListener("input", event => {
-  searchTerm = event.target.value.trim();
-  updateSearchSuggestions();
-  renderTasks();
-});
+    return {
+      ...task,
+      text: trimmedText,
+      category: editCategorySelect.value,
+      priority: editPrioritySelect.value,
+      date: editTaskDate.value,
+      time: editTaskTime.value
+    };
+  });
 
-searchInput.addEventListener("focus", () => {
-  updateSearchSuggestions();
-});
+  saveTasks();
+  closeEditModal();
+  renderEverything();
+}
 
-document.addEventListener("click", event => {
-  if (!event.target.closest(".search-area")) {
-    hideSearchSuggestions();
+function applyTheme() {
+  const isLightTheme = theme === "light";
+  document.body.classList.toggle("light", isLightTheme);
+  themeIcon.textContent = isLightTheme ? "\uD83C\uDF19" : "\u2600\uFE0F";
+  themeLabel.textContent = isLightTheme ? "Modo escuro" : "Modo claro";
+}
+
+function formatDateTime(date, time) {
+  if (!date && !time) return "Sem data e hora";
+  if (date && time) return `${formatDate(date)} \u00E0s ${time}`;
+  if (date) return `Data: ${formatDate(date)}`;
+  return `Hora: ${time}`;
+}
+
+function getPriorityClass(priority) {
+  if (priority === "Baixa") return "priority-baixa";
+  if (priority === "M\u00E9dia") return "priority-media";
+  return "priority-alta";
+}
+
+function getPriorityCardClass(priority) {
+  if (priority === "Baixa") return "priority-baixa-card";
+  if (priority === "M\u00E9dia") return "priority-media-card";
+  return "priority-alta-card";
+}
+
+function sortTasks(taskArray) {
+  const priorityOrder = { Alta: 1, ["M\u00E9dia"]: 2, Baixa: 3 };
+  const ordered = [...taskArray];
+
+  if (sortSelect.value === "date") {
+    ordered.sort((a, b) => {
+      const aDate = a.date ? new Date(`${a.date}T${a.time || "23:59"}`).getTime() : Infinity;
+      const bDate = b.date ? new Date(`${b.date}T${b.time || "23:59"}`).getTime() : Infinity;
+      return aDate - bDate;
+    });
+  } else if (sortSelect.value === "recent") {
+    ordered.sort((a, b) => b.id - a.id);
+  } else {
+    ordered.sort((a, b) => {
+      if (a.completed !== b.completed) return a.completed - b.completed;
+      return (priorityOrder[a.priority] || 99) - (priorityOrder[b.priority] || 99);
+    });
   }
-});
 
-themeToggleBtn.addEventListener("click", toggleTheme);
+  return ordered;
+}
+
+function renderTasks(displayedTasks) {
+  taskList.innerHTML = "";
+
+  if (displayedTasks.length === 0) {
+    taskList.innerHTML = `
+      <div class="empty-state">
+        <div class="empty-state-icon">&#128221;</div>
+        <div class="empty-state-title">Nenhuma tarefa encontrada</div>
+        <p>Tente adicionar uma nova tarefa ou alterar os filtros.</p>
+      </div>
+    `;
+    return;
+  }
+
+  const orderedTasks = sortTasks(displayedTasks);
+
+  orderedTasks.forEach(task => {
+    const item = document.createElement("article");
+    item.className = `task-item ${getPriorityCardClass(task.priority)}`;
+
+    item.innerHTML = `
+      <div class="task-main">
+        <input
+          type="checkbox"
+          class="task-checkbox"
+          ${task.completed ? "checked" : ""}
+          aria-label="Marcar tarefa como conclu&iacute;da"
+        />
+
+        <div class="task-info">
+          <div class="task-topline">
+            <span class="category-badge ${getCategoryClass(task.category)}">${task.category}</span>
+          </div>
+
+          <div class="task-title ${task.completed ? "completed" : ""}">
+            ${escapeHtml(task.text)}
+          </div>
+
+          <div class="task-meta">
+            <span class="badge ${getPriorityClass(task.priority)}">
+              Prioridade: ${task.priority}
+            </span>
+            <span class="badge">
+              ${task.completed ? "Conclu\u00EDda" : "Pendente"}
+            </span>
+            ${isTaskLate(task) ? `<span class="badge priority-alta">Atrasada</span>` : ""}
+          </div>
+
+          <div class="task-datetime">
+            ${formatDateTime(task.date, task.time)}
+          </div>
+        </div>
+      </div>
+
+      <div class="task-actions">
+        <button class="icon-btn edit-btn" type="button" aria-label="Editar tarefa">&#9997;&#65039;</button>
+        <button class="icon-btn delete-btn" type="button" aria-label="Excluir tarefa">&#128465;&#65039;</button>
+      </div>
+    `;
+
+    const checkbox = item.querySelector(".task-checkbox");
+    const editButton = item.querySelector(".edit-btn");
+    const deleteButton = item.querySelector(".delete-btn");
+
+    checkbox.addEventListener("change", () => toggleTask(task.id));
+    editButton.addEventListener("click", () => openEditModal(task));
+    deleteButton.addEventListener("click", () => deleteTask(task.id));
+
+    taskList.appendChild(item);
+  });
+}
 
 filterButtons.forEach(button => {
   button.addEventListener("click", () => {
-    filterButtons.forEach(filterButton => {
-      filterButton.classList.remove("active");
-    });
-
+    filterButtons.forEach(btn => btn.classList.remove("active"));
     button.classList.add("active");
     currentFilter = button.dataset.filter;
-    renderTasks();
-    updateSearchSuggestions();
+    renderEverything();
   });
 });
 
-loadTasks();
-loadTheme();
+themeToggle.addEventListener("click", () => {
+  theme = theme === "dark" ? "light" : "dark";
+  saveTheme();
+  applyTheme();
+});
+
+taskForm.addEventListener("submit", addTask);
+editTaskForm.addEventListener("submit", updateTask);
+searchInput.addEventListener("input", renderEverything);
+sortSelect.addEventListener("change", renderEverything);
+clearDoneBtn.addEventListener("click", clearCompletedTasks);
+closeModalBtn.addEventListener("click", closeEditModal);
+
+editModal.addEventListener("click", event => {
+  if (event.target === editModal) {
+    closeEditModal();
+  }
+});
+
+document.addEventListener("click", event => {
+  const clickedInsideSearch =
+    autocompleteList.contains(event.target) ||
+    searchInput.contains(event.target);
+
+  if (!clickedInsideSearch) {
+    autocompleteList.style.display = "none";
+  }
+});
+
 applyTheme();
-renderTasks();
+renderEverything();

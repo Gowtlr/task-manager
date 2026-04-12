@@ -1,73 +1,255 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Gerenciador de Tarefas</title>
-  <link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TaskFlow - Gerenciador de Tarefas</title>
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <div class="container">
-    <div class="header">
-      <h1>Gerenciador de Tarefas</h1>
-      <button id="themeToggleBtn" class="theme-toggle-btn">☀️ Modo claro</button>
-    </div>
+  <script>
+    if (localStorage.getItem("theme_insane") === "light") {
+      document.body.classList.add("light");
+    }
+  </script>
+  <div class="bg-glow glow-1"></div>
+  <div class="bg-glow glow-2"></div>
 
-    <div class="stats">
-      <div class="stat-box">
-        <span>Total</span>
-        <strong id="totalCount">0</strong>
+  <main class="app-shell">
+    <section class="topbar">
+      <div>
+        <span class="app-kicker">TaskFlow</span>
+        <h1>Gerenciador de Tarefas</h1>
+        <p class="app-subtitle">
+          Organize seu dia com mais estilo, foco e controle.
+        </p>
       </div>
 
-      <div class="stat-box">
-        <span>Pendentes</span>
-        <strong id="pendingCount">0</strong>
+      <div class="topbar-actions">
+        <button id="themeToggle" class="theme-toggle" type="button">
+          <span id="themeIcon">&#9728;&#65039;</span>
+          <span id="themeLabel">Modo claro</span>
+        </button>
+      </div>
+    </section>
+
+    <section class="dashboard-grid">
+      <article class="hero-card">
+        <div class="hero-content">
+          <span class="hero-badge">Painel inteligente</span>
+          <h2>Seu dia em um s&oacute; lugar</h2>
+          <p>
+            Adicione tarefas, acompanhe o progresso, filtre prioridades e
+            mantenha tudo visualmente organizado.
+          </p>
+
+          <div class="hero-mini-stats">
+            <div class="mini-stat">
+              <span>Hoje</span>
+              <strong id="todayTasks">0 tarefas</strong>
+            </div>
+            <div class="mini-stat">
+              <span>Conclus&atilde;o</span>
+              <strong id="progressText">0%</strong>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <section class="stats-grid">
+        <article class="stat-card total">
+          <div class="stat-icon">&#128203;</div>
+          <div>
+            <span class="stat-title">Total</span>
+            <strong id="totalCount" class="stat-number">0</strong>
+          </div>
+        </article>
+
+        <article class="stat-card pending">
+          <div class="stat-icon">&#9203;</div>
+          <div>
+            <span class="stat-title">Pendentes</span>
+            <strong id="pendingCount" class="stat-number">0</strong>
+          </div>
+        </article>
+
+        <article class="stat-card done">
+          <div class="stat-icon">&#9989;</div>
+          <div>
+            <span class="stat-title">Conclu&iacute;das</span>
+            <strong id="doneCount" class="stat-number">0</strong>
+          </div>
+        </article>
+
+        <article class="stat-card late">
+          <div class="stat-icon">&#128680;</div>
+          <div>
+            <span class="stat-title">Atrasadas</span>
+            <strong id="lateCount" class="stat-number">0</strong>
+          </div>
+        </article>
+      </section>
+    </section>
+
+    <section class="main-grid">
+      <aside class="panel form-panel">
+        <div class="panel-header">
+          <h2>Nova tarefa</h2>
+          <p>Crie tarefas com categoria, prioridade, data e hor&aacute;rio.</p>
+        </div>
+
+        <div class="search-area">
+          <label for="searchInput">Pesquisar</label>
+          <div class="search-box">
+            <input
+              type="text"
+              id="searchInput"
+              placeholder="Pesquisar tarefas..."
+              autocomplete="off"
+            />
+            <div id="autocompleteList" class="autocomplete-list"></div>
+          </div>
+        </div>
+
+        <form id="taskForm" class="task-form">
+          <div class="field full">
+            <label for="taskInput">Tarefa</label>
+            <input
+              type="text"
+              id="taskInput"
+              placeholder="Digite uma tarefa"
+              required
+            />
+          </div>
+
+          <div class="field">
+            <label for="categorySelect">Categoria</label>
+            <select id="categorySelect" required>
+              <option value="">Selecione</option>
+              <option value="Estudo">Estudo</option>
+              <option value="Trabalho">Trabalho</option>
+              <option value="Pessoal">Pessoal</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label for="prioritySelect">Prioridade</label>
+            <select id="prioritySelect" required>
+              <option value="">Selecione</option>
+              <option value="Baixa">Baixa</option>
+              <option value="M&#233;dia">M&eacute;dia</option>
+              <option value="Alta">Alta</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label for="taskDate">Data</label>
+            <input type="date" id="taskDate" />
+          </div>
+
+          <div class="field">
+            <label for="taskTime">Hora</label>
+            <input type="time" id="taskTime" />
+          </div>
+
+          <div class="form-actions full">
+            <button type="submit" class="btn btn-primary">Adicionar tarefa</button>
+            <button type="button" id="clearDoneBtn" class="btn btn-danger">
+              Limpar conclu&iacute;das
+            </button>
+          </div>
+        </form>
+      </aside>
+
+      <section class="panel tasks-panel">
+        <div class="tasks-header">
+          <div>
+            <h2>Minhas tarefas</h2>
+            <p>Filtre, ordene e acompanhe sua rotina.</p>
+          </div>
+
+          <div class="sort-box">
+            <label for="sortSelect">Ordenar por</label>
+            <select id="sortSelect">
+              <option value="priority">Prioridade</option>
+              <option value="date">Data</option>
+              <option value="recent">Mais recentes</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="filters" id="filters">
+          <button class="filter-btn active" data-filter="all" type="button">Todas</button>
+          <button class="filter-btn" data-filter="pending" type="button">Pendentes</button>
+          <button class="filter-btn" data-filter="done" type="button">Conclu&iacute;das</button>
+          <button class="filter-btn" data-filter="late" type="button">Atrasadas</button>
+          <button class="filter-btn" data-filter="high" type="button">Alta prioridade</button>
+          <button class="filter-btn" data-filter="study" type="button">Estudo</button>
+          <button class="filter-btn" data-filter="work" type="button">Trabalho</button>
+          <button class="filter-btn" data-filter="personal" type="button">Pessoal</button>
+        </div>
+
+        <div class="progress-card">
+          <div class="progress-top">
+            <span>Progresso geral</span>
+            <strong id="progressValue">0%</strong>
+          </div>
+          <div class="progress-bar">
+            <div id="progressFill" class="progress-fill"></div>
+          </div>
+        </div>
+
+        <div id="taskList" class="task-list"></div>
+      </section>
+    </section>
+  </main>
+
+  <div id="editModal" class="modal hidden">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3>Editar tarefa</h3>
+        <button id="closeModalBtn" class="icon-btn" type="button">&#10005;</button>
       </div>
 
-      <div class="stat-box">
-        <span>Concluídas</span>
-        <strong id="doneCount">0</strong>
-      </div>
+      <form id="editTaskForm" class="task-form modal-form">
+        <div class="field full">
+          <label for="editTaskInput">Tarefa</label>
+          <input type="text" id="editTaskInput" required />
+        </div>
 
-      <div class="stat-box">
-        <span>Atrasadas</span>
-        <strong id="overdueCount">0</strong>
-      </div>
+        <div class="field">
+          <label for="editCategorySelect">Categoria</label>
+          <select id="editCategorySelect" required>
+            <option value="Estudo">Estudo</option>
+            <option value="Trabalho">Trabalho</option>
+            <option value="Pessoal">Pessoal</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label for="editPrioritySelect">Prioridade</label>
+          <select id="editPrioritySelect" required>
+            <option value="Baixa">Baixa</option>
+            <option value="M&#233;dia">M&eacute;dia</option>
+            <option value="Alta">Alta</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label for="editTaskDate">Data</label>
+          <input type="date" id="editTaskDate" />
+        </div>
+
+        <div class="field">
+          <label for="editTaskTime">Hora</label>
+          <input type="time" id="editTaskTime" />
+        </div>
+
+        <div class="form-actions full">
+          <button type="submit" class="btn btn-primary">Salvar altera&ccedil;&otilde;es</button>
+        </div>
+      </form>
     </div>
-
-    <div class="search-area">
-      <input type="text" id="searchInput" placeholder="Pesquisar tarefas" autocomplete="off">
-      <div id="searchSuggestions" class="search-suggestions"></div>
-    </div>
-
-    <div class="input-area">
-      <input type="text" id="taskTextInput" placeholder="Digite uma tarefa">
-
-      <select id="taskPrioritySelect">
-        <option value="" selected disabled>Prioridade</option>
-        <option value="high">Alta</option>
-        <option value="medium">Média</option>
-        <option value="low">Baixa</option>
-      </select>
-
-      <input type="date" id="taskDateInput">
-      <input type="time" id="taskTimeInput">
-      <button id="addTaskBtn">Adicionar</button>
-    </div>
-
-    <div class="top-actions">
-      <button id="clearDoneBtn">Limpar concluídas</button>
-    </div>
-
-    <div class="filters">
-      <button class="filter-btn active" data-filter="all">Todas</button>
-      <button class="filter-btn" data-filter="pending">Pendentes</button>
-      <button class="filter-btn" data-filter="done">Concluídas</button>
-    </div>
-
-    <p id="emptyMessage" class="empty-message">Nenhuma tarefa encontrada.</p>
-
-    <ul id="taskList"></ul>
   </div>
 
   <script src="script.js"></script>
