@@ -32,7 +32,14 @@ function loadTasks() {
     return;
   }
 
-  const parsedTasks = JSON.parse(savedTasks);
+  let parsedTasks;
+
+  try {
+    parsedTasks = JSON.parse(savedTasks);
+  } catch (error) {
+    localStorage.removeItem("tasks");
+    return;
+  }
 
   if (!Array.isArray(parsedTasks)) {
     return;
@@ -101,9 +108,17 @@ function priorityLabel(priority) {
   return "Média";
 }
 
+function generateTaskId() {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+
+  return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
 function normalizeTask(task) {
   return {
-    id: task.id || Date.now() + Math.random(),
+    id: task.id || generateTaskId(),
     text: String(task.text || "").trim(),
     done: Boolean(task.done),
     priority: normalizePriority(task.priority),
@@ -133,7 +148,18 @@ function getCurrentLocalDateTime() {
 }
 
 function isValidDateString(value) {
-  return /^\d{4}-\d{2}-\d{2}$/.test(value);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return false;
+  }
+
+  const [year, month, day] = value.split("-").map(Number);
+  const date = new Date(year, month - 1, day);
+
+  return (
+    date.getFullYear() === year &&
+    date.getMonth() === month - 1 &&
+    date.getDate() === day
+  );
 }
 
 function isValidTimeString(value) {
@@ -252,12 +278,20 @@ function updateSearchSuggestions() {
     const suggestionItem = document.createElement("div");
     suggestionItem.classList.add("search-suggestion-item");
 
-    suggestionItem.innerHTML = `
-      <span class="search-suggestion-title">${task.text}</span>
-      <span class="search-suggestion-meta">
-        Prioridade: ${priorityLabel(task.priority)} • Data: ${formatDate(task.dueDate)} • Horário: ${formatTime(task.dueTime)}
-      </span>
-    `;
+    const suggestionTitle = document.createElement("span");
+    suggestionTitle.classList.add("search-suggestion-title");
+    suggestionTitle.textContent = task.text;
+
+    const suggestionMeta = document.createElement("span");
+    suggestionMeta.classList.add("search-suggestion-meta");
+    suggestionMeta.textContent = [
+      `Prioridade: ${priorityLabel(task.priority)}`,
+      `Data: ${formatDate(task.dueDate)}`,
+      `Horário: ${formatTime(task.dueTime)}`
+    ].join(" • ");
+
+    suggestionItem.appendChild(suggestionTitle);
+    suggestionItem.appendChild(suggestionMeta);
 
     suggestionItem.addEventListener("click", () => {
       searchInput.value = task.text;
@@ -391,7 +425,7 @@ function addTask() {
   }
 
   tasks.push({
-    id: Date.now(),
+    id: generateTaskId(),
     text: taskText,
     done: false,
     priority: normalizePriority(taskPriority),
