@@ -8,7 +8,10 @@
 </head>
 <body>
   <div class="container">
-    <h1>Gerenciador de Tarefas</h1>
+    <div class="header">
+      <h1>Gerenciador de Tarefas</h1>
+      <button id="themeToggleBtn" class="theme-toggle-btn">☀️ Modo claro</button>
+    </div>
 
     <div class="stats">
       <div class="stat-box">
@@ -32,16 +35,23 @@
       </div>
     </div>
 
+    <div class="search-area">
+      <input type="text" id="searchInput" placeholder="Pesquisar tarefas" autocomplete="off">
+      <div id="searchSuggestions" class="search-suggestions"></div>
+    </div>
+
     <div class="input-area">
-      <input type="text" id="taskInput" placeholder="Digite uma tarefa">
-      
-      <select id="taskPriority">
-        <option value="medium">Média</option>
+      <input type="text" id="taskTextInput" placeholder="Digite uma tarefa">
+
+      <select id="taskPrioritySelect">
+        <option value="" selected disabled>Prioridade</option>
         <option value="high">Alta</option>
+        <option value="medium">Média</option>
         <option value="low">Baixa</option>
       </select>
 
-      <input type="date" id="taskDate">
+      <input type="date" id="taskDateInput">
+      <input type="time" id="taskTimeInput">
       <button id="addTaskBtn">Adicionar</button>
     </div>
 

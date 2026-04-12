@@ -1,25 +1,78 @@
-const taskInput = document.getElementById("taskInput");
-const taskPriority = document.getElementById("taskPriority");
-const taskDate = document.getElementById("taskDate");
+const taskTextInput = document.getElementById("taskTextInput");
+const taskPrioritySelect = document.getElementById("taskPrioritySelect");
+const taskDateInput = document.getElementById("taskDateInput");
+const taskTimeInput = document.getElementById("taskTimeInput");
 const addTaskBtn = document.getElementById("addTaskBtn");
+const clearDoneBtn = document.getElementById("clearDoneBtn");
+const searchInput = document.getElementById("searchInput");
+const searchSuggestions = document.getElementById("searchSuggestions");
+const themeToggleBtn = document.getElementById("themeToggleBtn");
 const taskList = document.getElementById("taskList");
+const emptyMessage = document.getElementById("emptyMessage");
 const filterButtons = document.querySelectorAll(".filter-btn");
+
 const totalCount = document.getElementById("totalCount");
 const pendingCount = document.getElementById("pendingCount");
 const doneCount = document.getElementById("doneCount");
 const overdueCount = document.getElementById("overdueCount");
-const clearDoneBtn = document.getElementById("clearDoneBtn");
-const emptyMessage = document.getElementById("emptyMessage");
 
 let tasks = [];
 let currentFilter = "all";
+let searchTerm = "";
+let currentTheme = "dark";
 
 function saveTasks() {
   localStorage.setItem("tasks", JSON.stringify(tasks));
 }
 
+function loadTasks() {
+  const savedTasks = localStorage.getItem("tasks");
+
+  if (!savedTasks) {
+    return;
+  }
+
+  const parsedTasks = JSON.parse(savedTasks);
+
+  if (!Array.isArray(parsedTasks)) {
+    return;
+  }
+
+  tasks = parsedTasks
+    .map(normalizeTask)
+    .filter(task => task.text !== "");
+}
+
+function saveTheme() {
+  localStorage.setItem("theme", currentTheme);
+}
+
+function loadTheme() {
+  const savedTheme = localStorage.getItem("theme");
+
+  if (savedTheme === "light" || savedTheme === "dark") {
+    currentTheme = savedTheme;
+  }
+}
+
+function applyTheme() {
+  if (currentTheme === "light") {
+    document.body.classList.add("light-theme");
+    themeToggleBtn.textContent = "🌙 Modo escuro";
+  } else {
+    document.body.classList.remove("light-theme");
+    themeToggleBtn.textContent = "☀️ Modo claro";
+  }
+}
+
+function toggleTheme() {
+  currentTheme = currentTheme === "dark" ? "light" : "dark";
+  saveTheme();
+  applyTheme();
+}
+
 function normalizePriority(value) {
-  const normalized = String(value || "medium")
+  const normalized = String(value || "")
     .trim()
     .toLowerCase()
     .normalize("NFD")
@@ -48,60 +101,73 @@ function priorityLabel(priority) {
   return "Média";
 }
 
-function getTodayLocalDate() {
-  const today = new Date();
-  const year = today.getFullYear();
-  const month = String(today.getMonth() + 1).padStart(2, "0");
-  const day = String(today.getDate()).padStart(2, "0");
-
-  return `${year}-${month}-${day}`;
-}
-
-function isValidDateString(dateString) {
-  return /^\d{4}-\d{2}-\d{2}$/.test(dateString);
-}
-
-function formatDate(dateString) {
-  if (!dateString) {
-    return "Sem prazo";
-  }
-
-  const [year, month, day] = dateString.split("-");
-  return `${day}/${month}/${year}`;
-}
-
-function isOverdue(task) {
-  if (!task.dueDate || task.done) {
-    return false;
-  }
-
-  return task.dueDate < getTodayLocalDate();
-}
-
 function normalizeTask(task) {
   return {
     id: task.id || Date.now() + Math.random(),
     text: String(task.text || "").trim(),
     done: Boolean(task.done),
     priority: normalizePriority(task.priority),
-    dueDate: typeof task.dueDate === "string" ? task.dueDate : ""
+    dueDate: typeof task.dueDate === "string" ? task.dueDate : "",
+    dueTime: typeof task.dueTime === "string" ? task.dueTime : ""
   };
 }
 
-function loadTasks() {
-  const savedTasks = localStorage.getItem("tasks");
+function getTodayLocalDate() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
 
-  if (!savedTasks) {
-    return;
+  return `${year}-${month}-${day}`;
+}
+
+function getCurrentLocalDateTime() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  const hours = String(now.getHours()).padStart(2, "0");
+  const minutes = String(now.getMinutes()).padStart(2, "0");
+
+  return `${year}-${month}-${day}T${hours}:${minutes}`;
+}
+
+function isValidDateString(value) {
+  return /^\d{4}-\d{2}-\d{2}$/.test(value);
+}
+
+function isValidTimeString(value) {
+  return /^([01]\d|2[0-3]):([0-5]\d)$/.test(value);
+}
+
+function formatDate(dateString) {
+  if (!dateString) {
+    return "Sem data";
   }
 
-  const parsedTasks = JSON.parse(savedTasks);
+  const [year, month, day] = dateString.split("-");
+  return `${day}/${month}/${year}`;
+}
 
-  if (!Array.isArray(parsedTasks)) {
-    return;
+function formatTime(timeString) {
+  if (!timeString) {
+    return "Sem horário";
   }
 
-  tasks = parsedTasks.map(normalizeTask).filter(task => task.text !== "");
+  return timeString;
+}
+
+function isOverdue(task) {
+  if (task.done || !task.dueDate) {
+    return false;
+  }
+
+  if (task.dueTime) {
+    const taskDateTime = `${task.dueDate}T${task.dueTime}`;
+    return taskDateTime < getCurrentLocalDateTime();
+  }
+
+  return task.dueDate < getTodayLocalDate();
 }
 
 function updateCounts() {
@@ -123,30 +189,37 @@ function sortTasks(taskArray) {
     low: 2
   };
 
-  return [...taskArray].sort((a, b) => {
-    if (a.done !== b.done) {
-      return Number(a.done) - Number(b.done);
+  return [...taskArray].sort((firstTask, secondTask) => {
+    if (firstTask.done !== secondTask.done) {
+      return Number(firstTask.done) - Number(secondTask.done);
     }
 
-    if (a.dueDate && b.dueDate && a.dueDate !== b.dueDate) {
-      return a.dueDate.localeCompare(b.dueDate);
+    if (priorityOrder[firstTask.priority] !== priorityOrder[secondTask.priority]) {
+      return priorityOrder[firstTask.priority] - priorityOrder[secondTask.priority];
     }
 
-    if (a.dueDate && !b.dueDate) {
+    if (firstTask.dueDate && secondTask.dueDate) {
+      const firstDateTime = `${firstTask.dueDate}T${firstTask.dueTime || "23:59"}`;
+      const secondDateTime = `${secondTask.dueDate}T${secondTask.dueTime || "23:59"}`;
+
+      if (firstDateTime !== secondDateTime) {
+        return firstDateTime.localeCompare(secondDateTime);
+      }
+    }
+
+    if (firstTask.dueDate && !secondTask.dueDate) {
       return -1;
     }
 
-    if (!a.dueDate && b.dueDate) {
+    if (!firstTask.dueDate && secondTask.dueDate) {
       return 1;
     }
 
-    return priorityOrder[a.priority] - priorityOrder[b.priority];
+    return firstTask.text.localeCompare(secondTask.text, "pt-BR");
   });
 }
 
-function renderTasks() {
-  taskList.innerHTML = "";
-
+function getBaseFilteredTasks() {
   let filteredTasks = [...tasks];
 
   if (currentFilter === "pending") {
@@ -155,7 +228,64 @@ function renderTasks() {
     filteredTasks = filteredTasks.filter(task => task.done);
   }
 
-  filteredTasks = sortTasks(filteredTasks);
+  return sortTasks(filteredTasks);
+}
+
+function updateSearchSuggestions() {
+  searchSuggestions.innerHTML = "";
+
+  if (searchTerm === "") {
+    searchSuggestions.style.display = "none";
+    return;
+  }
+
+  const matchedTasks = getBaseFilteredTasks()
+    .filter(task => task.text.toLowerCase().includes(searchTerm.toLowerCase()))
+    .slice(0, 5);
+
+  if (matchedTasks.length === 0) {
+    searchSuggestions.style.display = "none";
+    return;
+  }
+
+  matchedTasks.forEach(task => {
+    const suggestionItem = document.createElement("div");
+    suggestionItem.classList.add("search-suggestion-item");
+
+    suggestionItem.innerHTML = `
+      <span class="search-suggestion-title">${task.text}</span>
+      <span class="search-suggestion-meta">
+        Prioridade: ${priorityLabel(task.priority)} • Data: ${formatDate(task.dueDate)} • Horário: ${formatTime(task.dueTime)}
+      </span>
+    `;
+
+    suggestionItem.addEventListener("click", () => {
+      searchInput.value = task.text;
+      searchTerm = task.text;
+      searchSuggestions.style.display = "none";
+      renderTasks();
+    });
+
+    searchSuggestions.appendChild(suggestionItem);
+  });
+
+  searchSuggestions.style.display = "block";
+}
+
+function hideSearchSuggestions() {
+  searchSuggestions.style.display = "none";
+}
+
+function renderTasks() {
+  taskList.innerHTML = "";
+
+  let filteredTasks = getBaseFilteredTasks();
+
+  if (searchTerm !== "") {
+    filteredTasks = filteredTasks.filter(task =>
+      task.text.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  }
 
   if (filteredTasks.length === 0) {
     emptyMessage.style.display = "block";
@@ -164,23 +294,23 @@ function renderTasks() {
   }
 
   filteredTasks.forEach(task => {
-    const li = document.createElement("li");
-    li.classList.add("task-item");
+    const taskItem = document.createElement("li");
+    taskItem.classList.add("task-item");
 
-    const content = document.createElement("div");
-    content.classList.add("task-content");
+    const taskContent = document.createElement("div");
+    taskContent.classList.add("task-content");
 
-    const textSpan = document.createElement("span");
-    textSpan.classList.add("task-text");
+    const taskText = document.createElement("span");
+    taskText.classList.add("task-text");
 
     if (task.done) {
-      textSpan.classList.add("done");
+      taskText.classList.add("done");
     }
 
-    textSpan.textContent = task.text;
+    taskText.textContent = task.text;
 
-    const meta = document.createElement("div");
-    meta.classList.add("task-meta");
+    const taskMeta = document.createElement("div");
+    taskMeta.classList.add("task-meta");
 
     const priorityBadge = document.createElement("span");
     priorityBadge.classList.add("priority-badge", task.priority);
@@ -188,23 +318,28 @@ function renderTasks() {
 
     const dateBadge = document.createElement("span");
     dateBadge.classList.add("date-badge");
-    dateBadge.textContent = `Prazo: ${formatDate(task.dueDate)}`;
+    dateBadge.textContent = `Data: ${formatDate(task.dueDate)}`;
 
-    meta.appendChild(priorityBadge);
-    meta.appendChild(dateBadge);
+    const timeBadge = document.createElement("span");
+    timeBadge.classList.add("time-badge");
+    timeBadge.textContent = `Horário: ${formatTime(task.dueTime)}`;
+
+    taskMeta.appendChild(priorityBadge);
+    taskMeta.appendChild(dateBadge);
+    taskMeta.appendChild(timeBadge);
 
     if (isOverdue(task)) {
       const overdueBadge = document.createElement("span");
       overdueBadge.classList.add("overdue-badge");
       overdueBadge.textContent = "Atrasada";
-      meta.appendChild(overdueBadge);
+      taskMeta.appendChild(overdueBadge);
     }
 
-    content.appendChild(textSpan);
-    content.appendChild(meta);
+    taskContent.appendChild(taskText);
+    taskContent.appendChild(taskMeta);
 
-    const actions = document.createElement("div");
-    actions.classList.add("task-actions");
+    const taskActions = document.createElement("div");
+    taskActions.classList.add("task-actions");
 
     const editBtn = document.createElement("button");
     editBtn.classList.add("edit-btn");
@@ -221,68 +356,86 @@ function renderTasks() {
     deleteBtn.textContent = "Excluir";
     deleteBtn.addEventListener("click", () => deleteTask(task.id));
 
-    actions.appendChild(editBtn);
-    actions.appendChild(completeBtn);
-    actions.appendChild(deleteBtn);
+    taskActions.appendChild(editBtn);
+    taskActions.appendChild(completeBtn);
+    taskActions.appendChild(deleteBtn);
 
-    li.appendChild(content);
-    li.appendChild(actions);
+    taskItem.appendChild(taskContent);
+    taskItem.appendChild(taskActions);
 
-    taskList.appendChild(li);
+    taskList.appendChild(taskItem);
   });
 
   updateCounts();
 }
 
 function addTask() {
-  const text = taskInput.value.trim();
+  const taskText = taskTextInput.value.trim();
+  const taskDate = taskDateInput.value;
+  const taskTime = taskTimeInput.value;
+  const taskPriority = taskPrioritySelect.value;
 
-  if (text === "") {
+  if (taskText === "") {
     alert("Digite uma tarefa.");
+    return;
+  }
+
+  if (taskPriority === "") {
+    alert("Selecione uma prioridade.");
+    return;
+  }
+
+  if (taskTime !== "" && taskDate === "") {
+    alert("Escolha uma data antes de definir um horário.");
     return;
   }
 
   tasks.push({
     id: Date.now(),
-    text: text,
+    text: taskText,
     done: false,
-    priority: normalizePriority(taskPriority.value),
-    dueDate: taskDate.value
+    priority: normalizePriority(taskPriority),
+    dueDate: taskDate,
+    dueTime: taskTime
   });
 
   saveTasks();
-  taskInput.value = "";
-  taskPriority.value = "medium";
-  taskDate.value = "";
+  taskTextInput.value = "";
+  taskPrioritySelect.value = "";
+  taskDateInput.value = "";
+  taskTimeInput.value = "";
   renderTasks();
+  updateSearchSuggestions();
 }
 
-function toggleTask(id) {
-  const task = tasks.find(task => task.id === id);
+function toggleTask(taskId) {
+  const selectedTask = tasks.find(task => task.id === taskId);
 
-  if (!task) {
+  if (!selectedTask) {
     return;
   }
 
-  task.done = !task.done;
+  selectedTask.done = !selectedTask.done;
   saveTasks();
   renderTasks();
+  updateSearchSuggestions();
 }
 
-function deleteTask(id) {
-  tasks = tasks.filter(task => task.id !== id);
+function deleteTask(taskId) {
+  tasks = tasks.filter(task => task.id !== taskId);
   saveTasks();
   renderTasks();
+  updateSearchSuggestions();
 }
 
-function editTask(id) {
-  const task = tasks.find(task => task.id === id);
+function editTask(taskId) {
+  const selectedTask = tasks.find(task => task.id === taskId);
 
-  if (!task) {
+  if (!selectedTask) {
     return;
   }
 
-  const newText = prompt("Edite o texto da tarefa:", task.text);
+  const newText = prompt("Edite o texto da tarefa:", selectedTask.text);
 
   if (newText === null) {
     return;
@@ -293,59 +446,83 @@ function editTask(id) {
     return;
   }
 
-  const newPriorityInput = prompt(
+  const newPriority = prompt(
     "Digite a prioridade: alta, media ou baixa",
-    priorityLabel(task.priority).toLowerCase()
+    priorityLabel(selectedTask.priority).toLowerCase()
   );
 
-  if (newPriorityInput === null) {
+  if (newPriority === null) {
     return;
   }
 
-  const normalizedPriorityInput = newPriorityInput
+  const normalizedPriority = newPriority
     .trim()
     .toLowerCase()
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "");
 
-  if (!["alta", "media", "baixa", "high", "medium", "low"].includes(normalizedPriorityInput)) {
+  if (!["alta", "media", "baixa", "high", "medium", "low"].includes(normalizedPriority)) {
     alert("Prioridade inválida. Use alta, media ou baixa.");
     return;
   }
 
-  const newDateInput = prompt(
-    "Digite o prazo no formato AAAA-MM-DD ou deixe vazio para remover:",
-    task.dueDate
+  const newDate = prompt(
+    "Digite a data no formato AAAA-MM-DD ou deixe vazio para remover:",
+    selectedTask.dueDate
   );
 
-  if (newDateInput === null) {
+  if (newDate === null) {
     return;
   }
 
-  const trimmedDate = newDateInput.trim();
+  const trimmedDate = newDate.trim();
 
   if (trimmedDate !== "" && !isValidDateString(trimmedDate)) {
     alert("Data inválida. Use o formato AAAA-MM-DD.");
     return;
   }
 
-  task.text = newText.trim();
-  task.priority = normalizePriority(newPriorityInput);
-  task.dueDate = trimmedDate;
+  const newTime = prompt(
+    "Digite o horário no formato HH:MM ou deixe vazio para remover:",
+    selectedTask.dueTime
+  );
+
+  if (newTime === null) {
+    return;
+  }
+
+  const trimmedTime = newTime.trim();
+
+  if (trimmedTime !== "" && !isValidTimeString(trimmedTime)) {
+    alert("Horário inválido. Use o formato HH:MM.");
+    return;
+  }
+
+  if (trimmedDate === "" && trimmedTime !== "") {
+    alert("Defina uma data para usar horário.");
+    return;
+  }
+
+  selectedTask.text = newText.trim();
+  selectedTask.priority = normalizePriority(newPriority);
+  selectedTask.dueDate = trimmedDate;
+  selectedTask.dueTime = trimmedTime;
 
   saveTasks();
   renderTasks();
+  updateSearchSuggestions();
 }
 
 function clearCompletedTasks() {
   tasks = tasks.filter(task => !task.done);
   saveTasks();
   renderTasks();
+  updateSearchSuggestions();
 }
 
 addTaskBtn.addEventListener("click", addTask);
 
-taskInput.addEventListener("keypress", function(event) {
+taskTextInput.addEventListener("keypress", event => {
   if (event.key === "Enter") {
     addTask();
   }
@@ -353,14 +530,38 @@ taskInput.addEventListener("keypress", function(event) {
 
 clearDoneBtn.addEventListener("click", clearCompletedTasks);
 
+searchInput.addEventListener("input", event => {
+  searchTerm = event.target.value.trim();
+  updateSearchSuggestions();
+  renderTasks();
+});
+
+searchInput.addEventListener("focus", () => {
+  updateSearchSuggestions();
+});
+
+document.addEventListener("click", event => {
+  if (!event.target.closest(".search-area")) {
+    hideSearchSuggestions();
+  }
+});
+
+themeToggleBtn.addEventListener("click", toggleTheme);
+
 filterButtons.forEach(button => {
   button.addEventListener("click", () => {
-    filterButtons.forEach(btn => btn.classList.remove("active"));
+    filterButtons.forEach(filterButton => {
+      filterButton.classList.remove("active");
+    });
+
     button.classList.add("active");
     currentFilter = button.dataset.filter;
     renderTasks();
+    updateSearchSuggestions();
   });
 });
 
 loadTasks();
+loadTheme();
+applyTheme();
 renderTasks();
