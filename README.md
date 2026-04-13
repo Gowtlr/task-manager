@@ -11,7 +11,7 @@ Aplicação web para gerenciamento de tarefas com foco em organização, produti
 
 ## Acesse o projeto
 
-https://gowtlr.github.io/task
+https://gowtlr.github.io/task-manager/
 
 ---
 
